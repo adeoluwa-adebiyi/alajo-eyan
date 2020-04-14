@@ -2,12 +2,20 @@ import datetime
 import json
 import google.cloud.bigquery as bigquery
 import pendulum
+from google.cloud.bigquery.dataset import DatasetListItem
 
-DATASET_ID = "analytics_XXXXXXXXX"
+DATASET_ID = ""
 
 CLIENT = bigquery.Client.from_service_account_json(
-    "./api/usecases/bigquery/credentials.json")
+    "APP_LOCATION_CREDENTIAL_PATH")
 
+dataset_ids = [dataset.dataset_id for dataset in CLIENT.list_datasets()]
+
+for _id in dataset_ids:
+    if "analytics" in _id.split("_"):
+        DATASET_ID = _id
+
+print("DATASET_ID: {}".format(DATASET_ID))
 
 
 HEADERS_MAP = {"user_property_user_id": "User ID",
@@ -205,8 +213,8 @@ def get_todays_visitors():
 
 def get_week_visitors_from_today():
     count = []
-    query = """SELECT COUNT(DISTINCT(user_pseudo_id)) as week_count FROM `analytics_214097931.events_*` WHERE _TABLE_SUFFIX BETWEEN '{}' 
-            AND '{}'; """.format(pendulum.now().start_of("week").strftime("%Y%m%d"), pendulum.now().strftime("%Y%m%d"))
+    query = """SELECT COUNT(DISTINCT(user_pseudo_id)) as week_count FROM `{}.events_*` WHERE _TABLE_SUFFIX BETWEEN '{}' 
+            AND '{}'; """.format(DATASET_ID,pendulum.now().start_of("week").strftime("%Y%m%d"), pendulum.now().strftime("%Y%m%d"))
     rows = CLIENT.query(query).result()
     field_names = get_field_names(rows)
     for row in rows:
@@ -216,8 +224,8 @@ def get_week_visitors_from_today():
 
 def get_monthly_visitors_from_today():
     count = []
-    query = """SELECT COUNT(DISTINCT(user_pseudo_id)) as month_count FROM `analytics_214097931.events_*` WHERE _TABLE_SUFFIX BETWEEN '{}' 
-        AND '{}'; """.format(pendulum.now().start_of("month").strftime("%Y%m%d"), pendulum.now().strftime("%Y%m%d"))
+    query = """SELECT COUNT(DISTINCT(user_pseudo_id)) as month_count FROM `{}.events_*` WHERE _TABLE_SUFFIX BETWEEN '{}' 
+        AND '{}'; """.format(DATASET_ID,pendulum.now().start_of("month").strftime("%Y%m%d"), pendulum.now().strftime("%Y%m%d"))
     rows = CLIENT.query(query).result()
     field_names = get_field_names(rows)
     for row in rows:
@@ -228,8 +236,8 @@ def get_monthly_visitors_from_today():
 # Returns  value of count of yearly visitors
 def get_yearly_visitors_from_today():
     count = []
-    query = """SELECT COUNT(DISTINCT(user_pseudo_id)) as year_count FROM `analytics_214097931.events_*` WHERE _TABLE_SUFFIX BETWEEN '{}' 
-    AND '{}'; """.format(pendulum.now().start_of("year").strftime("%Y%m%d"), pendulum.now().strftime("%Y%m%d"))
+    query = """SELECT COUNT(DISTINCT(user_pseudo_id)) as year_count FROM `{}.events_*` WHERE _TABLE_SUFFIX BETWEEN '{}' 
+    AND '{}'; """.format(DATASET_ID,pendulum.now().start_of("year").strftime("%Y%m%d"), pendulum.now().strftime("%Y%m%d"))
     rows = CLIENT.query(query).result()
     field_names = get_field_names(rows)
     for row in rows:
@@ -239,8 +247,8 @@ def get_yearly_visitors_from_today():
 
 def get_total_visitors_from_today():
     count = []
-    query = """SELECT COUNT(DISTINCT(user_pseudo_id)) as year_count FROM `analytics_214097931.events_*` WHERE _TABLE_SUFFIX BETWEEN '{}' 
-    AND '{}'; """.format("20200101", pendulum.now().strftime("%Y%m%d"))
+    query = """SELECT COUNT(DISTINCT(user_pseudo_id)) as year_count FROM `{}.events_*` WHERE _TABLE_SUFFIX BETWEEN '{}' 
+    AND '{}'; """.format(DATASET_ID,"20200101", pendulum.now().strftime("%Y%m%d"))
     rows = CLIENT.query(query).result()
     field_names = get_field_names(rows)
     for row in rows:
@@ -252,9 +260,9 @@ def get_average_time_spent():
     count = []
     query = """SELECT AVG(V) AS avg_time_spent FROM(
       (SELECT SUM(e.value.int_value/1000) AS V FROM
-      `analytics_214097931.events_*`, UNNEST(event_params) 
+      `{}.events_*`, UNNEST(event_params) 
       as e WHERE e.key="engagement_time_msec" GROUP BY user_pseudo_id
-      ));"""
+      ));""".format(DATASET_ID)
     rows = CLIENT.query(query).result()
     field_names = get_field_names(rows)
     for row in rows:
@@ -267,13 +275,13 @@ def get_active_users():
     query = """SELECT
       COUNT(DISTINCT user_id) AS n_day_active_users_count
     FROM
-      `analytics_214097931.events_*`
+      `{}.events_*`
     WHERE
       event_name = 'user_engagement'
       AND event_timestamp >
           UNIX_MICROS(TIMESTAMP_SUB(CURRENT_TIMESTAMP, INTERVAL 10 DAY))
       -- PLEASE REPLACE WITH YOUR DESIRED DATE RANGE.
-      AND _TABLE_SUFFIX BETWEEN '{}' AND FORMAT_DATE("%Y%m%d",CURRENT_DATE());""".format(pendulum.now().start_of("year").strftime("%Y%m%d"))
+      AND _TABLE_SUFFIX BETWEEN '{}' AND FORMAT_DATE("%Y%m%d",CURRENT_DATE());""".format(DATASET_ID,pendulum.now().start_of("year").strftime("%Y%m%d"))
     rows = CLIENT.query(query).result()
     field_names = get_field_names(rows)
     for row in rows:
@@ -286,7 +294,7 @@ def get_registered_users():
     query = """SELECT
       COUNT(DISTINCT user_id) AS registered_users
     FROM
-      `analytics_214097931.events_*`
+      `{}.events_*`
     WHERE
       user_id is not null;"""
     rows = CLIENT.query(query).result()
